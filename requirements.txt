@@ -1,0 +1,26 @@
+# MediChain Face Verification — Python Dependencies
+# Tested on Python 3.10+
+
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9       # Required for File/Form uploads
+
+# ML — FaceNet + Face Detection
+facenet-pytorch==2.5.3        # InceptionResnetV1 + MTCNN
+torch==2.2.2                  # CPU build (Railway free tier — no GPU)
+torchvision==0.17.2
+
+# ML — SVM Classifier
+scikit-learn==1.4.2
+numpy==1.26.4
+
+# Image processing
+Pillow==10.3.0
+opencv-python-headless==4.9.0.80   # headless = no GUI, smaller size
+
+# Firebase
+firebase-admin==6.5.0
+
+# Utilities
+python-dotenv==1.0.1

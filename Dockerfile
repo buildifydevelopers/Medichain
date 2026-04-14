@@ -1,7 +1,6 @@
 # ── STAGE 1: Builder ─────────────────────────────────────────────
 FROM python:3.11-slim-bookworm AS builder
 
-# Install system dependencies for building C extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
@@ -14,19 +13,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 
-# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 
-# Install CPU-only PyTorch first to prevent CUDA bloat
 RUN pip install --no-cache-dir \
     --index-url https://download.pytorch.org/whl/cpu \
     torch==2.2.2+cpu \
     torchvision==0.17.2+cpu
 
-# Install remaining dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Bake model weights into the image (Fixed multi-line syntax)
 RUN python3 -c "\
 from facenet_pytorch import InceptionResnetV1, MTCNN; \
 import torch; \
@@ -40,7 +35,6 @@ print('Weights baked successfully.'); \
 # ── STAGE 2: Runtime ─────────────────────────────────────────────
 FROM python:3.11-slim-bookworm AS runtime
 
-# Runtime system libs (specifically libgl1 for OpenCV)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libsm6 \
@@ -52,36 +46,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Create a non-root user immediately
 RUN useradd -m -u 1000 medichain
 
-# Copy installed packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Copy model weights to the NEW user's home directory
 COPY --from=builder /root/.cache/torch /home/medichain/.cache/torch
 
-# Copy application source code
 COPY . .
 
-# Fix permissions for the app directory and the model cache
 RUN chown -R medichain:medichain /app /home/medichain/.cache/torch
 
 USER medichain
 
-# Environment Variables
+# Railway will override this PORT variable automatically
 ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-# Force Torch to look in the medichain user's home
 ENV TORCH_HOME=/home/medichain/.cache/torch
+ENV PYTHONPATH=/app
 
 EXPOSE $PORT
 
-# Healthcheck to verify the API is alive
+# Healthcheck updated to use the dynamic PORT variable
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:$PORT/health')" || exit 1
+    CMD python3 -c "import urllib.request, os; port = os.getenv('PORT', '8000'); urllib.request.urlopen(f'http://localhost:{port}/health')" || exit 1
 
-# Run with a single worker to save RAM on Railway's free tier
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# FINAL FIX: Use the environment variable for the port
+# The shell form (no brackets) allows variable substitution
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --workers 1

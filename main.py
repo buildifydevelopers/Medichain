@@ -13,7 +13,7 @@ import logging
 
 from face_service import FaceService
 from schemas import EnrollResponse, TrainResponse, VerifyResponse
-
+print(f"🚀 PORT from Railway = {os.getenv('PORT', 'NOT INJECTED')}", flush=True)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

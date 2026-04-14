@@ -11,7 +11,7 @@ import uvicorn
 import os
 import logging
 
-from services.face_service import FaceService
+from face_service import FaceService
 from models.schemas import EnrollResponse, TrainResponse, VerifyResponse
 
 logging.basicConfig(level=logging.INFO)

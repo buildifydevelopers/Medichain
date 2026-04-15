@@ -11,9 +11,9 @@ import uvicorn
 import os
 import logging
 
-from face_service import FaceService
-from schemas import EnrollResponse, TrainResponse, VerifyResponse
-print(f"🚀 PORT from Railway = {os.getenv('PORT', 'NOT INJECTED')}", flush=True)
+from services.face_service import FaceService
+from models.schemas import EnrollResponse, TrainResponse, VerifyResponse
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -138,7 +138,50 @@ async def verify_patient(
     )
 
 
-@app.delete("/patient/{patient_id}")
+@app.post("/debug/verify")
+async def debug_verify(
+    patient_id: str = Form(...),
+    photo: UploadFile = File(...)
+):
+    """
+    Debug endpoint — same as /verify but returns full internal scores.
+    Use this from FastAPI /docs to diagnose match issues.
+    Shows: SVM confidence, cosine confidence, face detected yes/no.
+    REMOVE or restrict in production.
+    """
+    photo_bytes = await photo.read()
+    result = await face_service.verify_patient(patient_id, photo_bytes)
+
+    if not result["success"]:
+        return {"error": result["error"], "tip": "Check face visibility and lighting"}
+
+    return {
+        "patient_id": patient_id,
+        "is_match": result["is_match"],
+        "confidence_displayed": result["confidence"],
+        "svm_confidence": result.get("svm_confidence", "N/A"),
+        "cosine_confidence": result.get("cosine_confidence", "N/A"),
+        "svm_threshold": face_service.SVM_CONFIDENCE_THRESHOLD,
+        "cosine_threshold": face_service.COSINE_THRESHOLD,
+        "diagnosis": _diagnose(result)
+    }
+
+
+def _diagnose(result: dict) -> str:
+    svm = result.get("svm_confidence", 0)
+    cos = result.get("cosine_confidence", 0)
+    if svm < 0.3 and cos < 0.3:
+        return "Both scores very low — likely different person OR enrollment photos were low quality"
+    if svm < 0.3 and cos > 0.5:
+        return "SVM failing but cosine OK — retrain the SVM (/train again)"
+    if svm > 0.5 and cos < 0.5:
+        return "SVM OK but cosine low — embedding mismatch, check lighting consistency"
+    if 0.3 < svm < 0.55 and 0.3 < cos < 0.75:
+        return "Borderline match — enroll more photos (aim for 8-10), vary angles"
+    return "Scores look reasonable"
+
+
+
 async def delete_patient(patient_id: str):
     """Remove all face data for a patient (GDPR / DPDP Act compliance)."""
     result = await face_service.delete_patient(patient_id)

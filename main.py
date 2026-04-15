@@ -12,7 +12,7 @@ import os
 import logging
 
 from face_service import FaceService
-from models.schemas import EnrollResponse, TrainResponse, VerifyResponse
+from schemas import EnrollResponse, TrainResponse, VerifyResponse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

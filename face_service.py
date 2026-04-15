@@ -40,7 +40,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from services.firebase_service import FirebaseService
+from firebase_service import FirebaseService
 
 logger = logging.getLogger(__name__)
 

@@ -21,6 +21,9 @@ class VerifyResponse(BaseModel):
     is_match: bool
     confidence: float
     message: str
+    # Debug fields — visible in API response, useful during testing
+    svm_confidence: Optional[float] = None
+    cosine_confidence: Optional[float] = None
 
 
 class ErrorResponse(BaseModel):
